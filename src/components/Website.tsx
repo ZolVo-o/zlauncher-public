@@ -39,7 +39,7 @@ const CHECKLIST = [
 const FAQ = [
   {
     q: 'Почему кнопка загрузки не работает?',
-    a: 'Обычно причина в том, что файлы не были подготовлены в public/downloads. Запустите npm run site:prepare-downloads.',
+    a: 'Проверьте, что на GitHub есть Release с нужными файлами и именами. Кнопки ведут на assets из Releases.',
   },
   {
     q: 'Какая Java нужна?',
@@ -138,8 +138,8 @@ export function Website() {
             Скачать, установить и запустить Minecraft за пару минут
           </h1>
           <p className="mt-6 max-w-2xl text-zinc-300">
-            Здесь можно скачать лаунчер и мод доступности напрямую с сайта.
-            Все файлы выдаются из папки downloads.
+            Здесь можно скачать лаунчер и мод доступности через GitHub Releases.
+            Это самый надежный способ без ошибок 404 на Pages.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -262,7 +262,7 @@ export function Website() {
         <section className="mt-12 rounded-2xl border border-green-500/30 bg-green-900/10 p-5 text-sm text-green-200">
           <p className="flex items-center gap-2 font-semibold">
             <CheckCircle2 className="h-4 w-4" />
-            Перед публикацией обновляй файлы командой `npm run site:prepare-downloads`.
+            Перед запуском кнопок скачивания загрузи файлы в GitHub Release.
           </p>
         </section>
       </main>

@@ -10,7 +10,7 @@
     "site:clean-downloads": "node scripts/clean-site-downloads.mjs",
     "site:prepare-downloads": "node scripts/prepare-site-downloads.mjs",
     "build": "vite build",
-    "build:site": "npm run site:prepare-downloads && vite build",
+    "build:site": "vite build",
     "preview": "vite preview",
     "desktop:dev": "node scripts/dev-desktop.mjs",
     "desktop:pack": "npm run site:clean-downloads && npm run build && electron-builder --win --dir",
