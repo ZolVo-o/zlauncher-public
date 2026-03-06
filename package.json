@@ -1,0 +1,60 @@
+{
+  "name": "react-vite-tailwind",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "site:clean-downloads": "node scripts/clean-site-downloads.mjs",
+    "site:prepare-downloads": "node scripts/prepare-site-downloads.mjs",
+    "build": "vite build",
+    "build:site": "npm run site:prepare-downloads && vite build",
+    "preview": "vite preview",
+    "desktop:dev": "node scripts/dev-desktop.mjs",
+    "desktop:pack": "npm run site:clean-downloads && npm run build && electron-builder --win --dir",
+    "desktop:build": "npm run site:clean-downloads && npm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.35.0",
+    "lucide-react": "^0.576.0",
+    "minecraft-launcher-core": "^3.18.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.17",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.12",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3",
+    "vite": "7.2.4",
+    "vite-plugin-singlefile": "2.3.0"
+  },
+  "build": {
+    "appId": "com.zlauncher.desktop",
+    "productName": "ZLauncher",
+    "icon": "build/icon.png",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": "nsis"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "zlauncher_access",
+  "version": "${version}",
+  "name": "ZLauncher Access",
+  "description": "Спецрежим доступности для Minecraft: управление одной рукой, быстрые переключатели и помощники запуска.",
+  "authors": [
+    "ZLauncher Team"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.zlauncher.access.ZLauncherAccessClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

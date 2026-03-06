@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build artifacts
+dist/
+release/
+release-*/
+public/downloads/
+
+# local tools/cache
+.tools/
+.gradle/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# env
+.env
+.env.*
+
+# editors/os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
