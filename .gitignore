@@ -6,6 +6,7 @@ dist/
 release/
 release-*/
 public/downloads/
+minecraft-mod/zlauncher-access/build/
 
 # local tools/cache
 .tools/
