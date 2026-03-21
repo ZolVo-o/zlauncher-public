@@ -55,8 +55,8 @@ const RELEASE_CHANNELS = [
 ];
 
 const FLOW = [
-  'Открой страницу релизов на GitHub.',
-  'Выбери последнюю стабильную версию и скачай нужный asset.',
+  'Открой репозиторий проекта на GitHub.',
+  'Перейди в нужный раздел (Releases/README) прямо из репозитория.',
   'Запусти лаунчер и создай сборку с нужной версией игры.',
   'При необходимости добавь мод доступности в папку mods.',
 ];
@@ -64,7 +64,7 @@ const FLOW = [
 const FAQ = [
   {
     q: 'Где теперь скачивание?',
-    a: 'Все загрузки перенесены в GitHub Releases. Сайт только направляет в нужный раздел.',
+    a: 'Сайт переводит в репозиторий GitHub, откуда уже открываются нужные разделы и файлы.',
   },
   {
     q: 'Почему так лучше?',
@@ -164,7 +164,7 @@ export function Website() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <GithubLinkButton href={SITE_CONFIG.github.releases} label="Открыть GitHub Releases" primary />
+              <GithubLinkButton href={SITE_CONFIG.github.repo} label="Открыть GitHub" primary />
               <GithubLinkButton href={SITE_CONFIG.github.repo} label="Открыть репозиторий" />
             </div>
           </div>
@@ -204,7 +204,7 @@ export function Website() {
           <SectionHeader
             eyebrow="GITHUB FLOW"
             title="Получение файлов"
-            subtitle="Все каналы получения лаунчера и мода теперь идут через GitHub Releases."
+            subtitle="Все каналы получения лаунчера и мода теперь идут через репозиторий GitHub."
           />
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -217,12 +217,12 @@ export function Website() {
                 <h3 className="mt-2 text-lg font-bold text-zinc-100">{item.title}</h3>
                 <p className="mt-2 text-sm text-zinc-300">{item.text}</p>
                 <a
-                  href={SITE_CONFIG.github.releases}
+                  href={SITE_CONFIG.github.repo}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-accent-300 transition-colors hover:text-accent-200"
                 >
-                  Открыть Releases <ArrowRight className="h-4 w-4" />
+                  Открыть GitHub <ArrowRight className="h-4 w-4" />
                 </a>
               </article>
             ))}
