@@ -1,6 +1,10 @@
 export const SITE_CONFIG = {
   appName: 'ZLauncher',
   latestVersion: '0.0.0',
+  github: {
+    repo: 'https://github.com/ZolVo-o/zlauncher-public',
+    releases: 'https://github.com/ZolVo-o/zlauncher-public/releases',
+  },
   downloads: {
     windowsInstaller:
       'https://github.com/ZolVo-o/zlauncher-public/releases/latest/download/ZLauncher-Setup-0.0.0.exe',

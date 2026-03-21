@@ -7,11 +7,12 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const singleFileEnabled = process.env.VITE_SINGLEFILE !== "false";
 
 // https://vite.dev/config/
 export default defineConfig({
   base: process.env.VITE_BASE_PATH || "/",
-  plugins: [react(), tailwindcss(), viteSingleFile()],
+  plugins: [react(), tailwindcss(), ...(singleFileEnabled ? [viteSingleFile()] : [])],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
