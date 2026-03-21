@@ -6,12 +6,12 @@ const outDir = path.join(root, 'public', 'downloads');
 
 const files = [
   {
-    from: path.join(root, 'release', 'ZLauncher Setup 0.0.0.exe'),
-    to: path.join(outDir, 'ZLauncher-Setup-0.0.0.exe'),
+    from: path.join(root, 'release', 'zollauncher Setup 0.0.0.exe'),
+    to: path.join(outDir, 'zollauncher-Setup-0.0.0.exe'),
   },
   {
-    from: path.join(root, 'release', 'win-unpacked', 'ZLauncher.exe'),
-    to: path.join(outDir, 'ZLauncher-Portable-0.0.0.exe'),
+    from: path.join(root, 'release', 'win-unpacked', 'zollauncher.exe'),
+    to: path.join(outDir, 'zollauncher-Portable-0.0.0.exe'),
   },
   {
     from: path.join(
@@ -26,16 +26,16 @@ const files = [
   },
 ];
 
-const launcherReadme = `ZLauncher
+const launcherReadme = `zollauncher
 Версия: 0.0.0
 
 Установка:
-1. Запустите ZLauncher-Setup-0.0.0.exe
+1. Запустите zollauncher-Setup-0.0.0.exe
 2. Следуйте мастеру установки
-3. После установки запустите ZLauncher
+3. После установки запустите zollauncher
 
 Portable:
-- ZLauncher-Portable-0.0.0.exe можно запускать без установки.
+- zollauncher-Portable-0.0.0.exe можно запускать без установки.
 `;
 
 const modReadme = `ZLauncher Access Mod

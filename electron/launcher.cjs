@@ -8,10 +8,59 @@ const { Client, Authenticator } = require("minecraft-launcher-core");
 
 function splitArgs(raw) {
   if (!raw || typeof raw !== "string") return [];
-  return raw
-    .split(" ")
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const result = [];
+  let token = "";
+  let quote = null;
+  let escaping = false;
+
+  for (const char of raw) {
+    if (escaping) {
+      token += char;
+      escaping = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaping = true;
+      continue;
+    }
+
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      } else {
+        token += char;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (token) {
+        result.push(token);
+        token = "";
+      }
+      continue;
+    }
+
+    token += char;
+  }
+
+  if (escaping) token += "\\";
+  if (token) result.push(token);
+  return result;
+}
+
+function clampNumber(value, min, max, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < min) return min;
+  if (parsed > max) return max;
+  return Math.round(parsed);
 }
 
 function normalizeErrorMessage(error) {
@@ -154,6 +203,13 @@ class LauncherService extends EventEmitter {
     this.proc = null;
     this.pid = null;
     this.launchStartedAt = 0;
+    this.stopTimeout = null;
+  }
+
+  clearStopTimeout() {
+    if (!this.stopTimeout) return;
+    clearTimeout(this.stopTimeout);
+    this.stopTimeout = null;
   }
 
   isRunning() {
@@ -163,7 +219,38 @@ class LauncherService extends EventEmitter {
   stop() {
     if (!this.proc) return false;
     this.emit("log", { level: "WARN", source: "Launcher", message: "Останавливаю игровой процесс..." });
-    this.proc.kill();
+    const pidToKill = this.pid;
+
+    try {
+      this.proc.kill();
+    } catch (_err) {
+      // noop
+    }
+
+    // Some Java processes may ignore the first signal; force-kill after timeout.
+    this.clearStopTimeout();
+    this.stopTimeout = setTimeout(() => {
+      if (!this.proc) return;
+      this.emit("log", {
+        level: "WARN",
+        source: "Launcher",
+        message: "Процесс не завершился вовремя. Пробую принудительно остановить...",
+      });
+
+      try {
+        if (process.platform === "win32" && pidToKill) {
+          spawnSync("taskkill", ["/PID", String(pidToKill), "/T", "/F"], {
+            windowsHide: true,
+            stdio: "ignore",
+          });
+          return;
+        }
+        this.proc.kill("SIGKILL");
+      } catch (_err) {
+        // noop
+      }
+    }, 6000);
+
     return true;
   }
 
@@ -228,15 +315,18 @@ class LauncherService extends EventEmitter {
       throw new Error("Игра уже запущена.");
     }
 
+    this.clearStopTimeout();
+
     try {
-      const gameRoot = (settings?.gameDir && settings.gameDir.trim())
-        ? settings.gameDir.trim()
+      const launchSettings = settings && typeof settings === "object" ? settings : {};
+      const gameRoot = (launchSettings?.gameDir && launchSettings.gameDir.trim())
+        ? launchSettings.gameDir.trim()
         : path.join(os.homedir(), "AppData", "Roaming", ".zlauncher");
       if (!exists(gameRoot)) {
         fs.mkdirSync(gameRoot, { recursive: true });
       }
 
-      const { target: targetJavaMajor, required, mode } = resolveTargetJavaMajor(settings, instance?.version);
+      const { target: targetJavaMajor, required, mode } = resolveTargetJavaMajor(launchSettings, instance?.version);
       if (mode === "manual" && targetJavaMajor < required) {
         throw new Error(
           `Выбрана Java ${targetJavaMajor}, но для версии ${instance?.version || "latest"} требуется Java ${required}+.\n` +
@@ -251,15 +341,23 @@ class LauncherService extends EventEmitter {
             ? `Для версии ${instance?.version || "latest"} выбрана Java ${targetJavaMajor} (автоопределение)`
             : `Выбрана Java ${targetJavaMajor} (ручной выбор) для версии ${instance?.version || "latest"}`,
       });
-      const javaPath = await this.ensureJavaPath(settings, gameRoot, targetJavaMajor);
-      const minMemory = Number(settings.minMemory) || 1024;
-      const maxMemory = Number(settings.maxMemory) || 4096;
-      const username = settings?.username?.trim() || "Player";
+      const javaPath = await this.ensureJavaPath(launchSettings, gameRoot, targetJavaMajor);
+      const minMemory = clampNumber(launchSettings?.minMemory, 512, 32768, 1024);
+      const requestedMaxMemory = clampNumber(launchSettings?.maxMemory, 512, 65536, 4096);
+      const maxMemory = Math.max(minMemory, requestedMaxMemory);
+      if (requestedMaxMemory < minMemory) {
+        this.emit("log", {
+          level: "WARN",
+          source: "Launcher",
+          message: `Максимальная память меньше минимальной. Автоматически скорректировано до ${maxMemory}M.`,
+        });
+      }
+      const username = launchSettings?.username?.trim() || "Player";
       const versionType = instance?.type === "snapshot" ? "snapshot" : "release";
-      const width = Number(settings.resolution?.width) || 1280;
-      const height = Number(settings.resolution?.height) || 720;
-      const customJavaArgs = splitArgs(settings?.jvmArgs);
-      const customLaunchArgs = splitArgs(settings?.gameArgs);
+      const width = clampNumber(launchSettings?.resolution?.width, 640, 7680, 1280);
+      const height = clampNumber(launchSettings?.resolution?.height, 480, 4320, 720);
+      const customJavaArgs = splitArgs(launchSettings?.jvmArgs);
+      const customLaunchArgs = splitArgs(launchSettings?.gameArgs);
 
       this.emit("status", { value: "Подготовка запуска..." });
       this.emit("progress", { value: 20 });
@@ -309,6 +407,7 @@ class LauncherService extends EventEmitter {
         }
       });
       this.client.on("close", (code) => {
+        this.clearStopTimeout();
         const elapsedSec = Math.round((Date.now() - this.launchStartedAt) / 1000);
         this.emit("log", {
           level: "INFO",
@@ -337,7 +436,7 @@ class LauncherService extends EventEmitter {
         window: {
           width,
           height,
-          fullscreen: Boolean(settings?.fullScreen),
+          fullscreen: Boolean(launchSettings?.fullScreen),
         },
         customArgs: customJavaArgs,
         customLaunchArgs,
@@ -370,6 +469,7 @@ class LauncherService extends EventEmitter {
       this.emit("status", { value: "Ошибка запуска" });
       this.emit("progress", { value: 0 });
       this.emit("error", { message });
+      this.clearStopTimeout();
       this.proc = null;
       this.pid = null;
       this.client = null;

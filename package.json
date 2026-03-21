@@ -1,5 +1,5 @@
 {
-  "name": "react-vite-tailwind",
+  "name": "zollauncher",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -40,8 +40,8 @@
     "vite-plugin-singlefile": "2.3.0"
   },
   "build": {
-    "appId": "com.zlauncher.desktop",
-    "productName": "ZLauncher",
+    "appId": "com.zollauncher.desktop",
+    "productName": "zollauncher",
     "icon": "build/icon.png",
     "directories": {
       "output": "release",

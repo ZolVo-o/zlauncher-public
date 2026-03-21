@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { DesktopLauncherEvent } from '../types/zlauncher';
 
 export type InstanceType = 'release' | 'snapshot' | 'modded';
-export type TabId = 'home' | 'instances' | 'mods' | 'console' | 'settings';
+export type TabId = 'home' | 'instances' | 'mods' | 'skins' | 'console' | 'settings';
 
 export interface Instance {
   id: string;
@@ -91,6 +91,14 @@ const DEFAULT_SETTINGS: Settings = {
   reduceEffects: false,
 };
 
+let browserLaunchInterval: ReturnType<typeof setInterval> | null = null;
+
+function clearBrowserLaunchInterval() {
+  if (!browserLaunchInterval) return;
+  clearInterval(browserLaunchInterval);
+  browserLaunchInterval = null;
+}
+
 function createId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -149,6 +157,8 @@ export const useLauncherStore = create<LauncherState>()(
 
         if (!instance || get().isPlaying) return;
 
+        clearBrowserLaunchInterval();
+
         set({
           isPlaying: true,
           launchProgress: 0,
@@ -165,17 +175,21 @@ export const useLauncherStore = create<LauncherState>()(
             .startLaunch({ instance, settings })
             .then(() => {
               set({ launchStatus: 'Игровой процесс запущен', launchProgress: 20 });
+              if (settings.autoClose) {
+                window.zlauncher?.windowClose().catch(() => undefined);
+              }
             })
             .catch((error: unknown) => {
               const message = error instanceof Error ? error.message : String(error);
               addLog('ERROR', 'Launcher', message);
+              clearBrowserLaunchInterval();
               set({ isPlaying: false, launchStatus: 'Готово', launchProgress: 0, launchStartedAt: null });
             });
           return;
         }
 
         let progress = 0;
-        const interval = setInterval(() => {
+        browserLaunchInterval = setInterval(() => {
           progress += Math.random() * 2 + 0.5;
           if (progress > 100) progress = 100;
           set({ launchProgress: progress });
@@ -186,7 +200,7 @@ export const useLauncherStore = create<LauncherState>()(
           if (progress > 80 && progress < 83) set({ launchStatus: 'Завершение...' });
 
           if (progress >= 100) {
-            clearInterval(interval);
+            clearBrowserLaunchInterval();
             set({ launchStatus: 'Игра запущена' });
             addLog('INFO', 'Client', 'Окно игры создано');
             setTimeout(() => {
@@ -198,6 +212,7 @@ export const useLauncherStore = create<LauncherState>()(
       },
 
       stopLaunch: () => {
+        clearBrowserLaunchInterval();
         if (window.zlauncher?.isDesktop) {
           window.zlauncher.stopLaunch().catch(() => undefined);
         }
@@ -216,6 +231,7 @@ export const useLauncherStore = create<LauncherState>()(
         }
         if (event.type === 'error') {
           get().addLog('ERROR', 'Launcher', event.payload.message);
+          clearBrowserLaunchInterval();
           set({ isPlaying: false, launchProgress: 0, launchStatus: 'Готово', launchStartedAt: null });
           return;
         }
@@ -231,6 +247,7 @@ export const useLauncherStore = create<LauncherState>()(
           return;
         }
         if (event.type === 'exit') {
+          clearBrowserLaunchInterval();
           const startedAt = get().launchStartedAt;
           if (startedAt && get().selectedInstanceId) {
             const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));

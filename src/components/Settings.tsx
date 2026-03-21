@@ -81,7 +81,7 @@ export function Settings() {
             <div className="space-y-2">
               <label className="text-sm text-zinc-400">Быстрые действия</label>
               <p className="text-xs text-zinc-500 bg-black/20 border border-white/5 rounded-lg px-3 py-2">
-                Пробел: запуск/остановка • F1-F5: переключение разделов
+                Пробел: запуск/остановка • F1-F6: переключение разделов
               </p>
             </div>
           </div>

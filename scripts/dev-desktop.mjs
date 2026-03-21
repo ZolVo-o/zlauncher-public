@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import net from "node:net";
 import process from "node:process";
+import electronBinary from "electron";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -62,10 +63,13 @@ if (!ready) {
   process.exit(1);
 }
 
-const electron = spawn("npx", ["electron", "."], {
+const electronEnv = { ...process.env, VITE_DEV_SERVER_URL: devUrl };
+delete electronEnv.ELECTRON_RUN_AS_NODE;
+
+const electron = spawn(electronBinary, ["."], {
   stdio: "inherit",
-  shell: true,
-  env: { ...process.env, VITE_DEV_SERVER_URL: devUrl },
+  shell: false,
+  env: electronEnv,
 });
 
 electron.on("exit", (code) => {

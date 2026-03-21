@@ -7,6 +7,7 @@ import {
   User,
   LogOut,
   HardDrive,
+  Palette,
   ChevronDown,
   Terminal,
   X,
@@ -21,6 +22,8 @@ import { cn } from './utils/cn';
 import { useLauncherStore } from './store/launcherStore';
 import { Settings } from './components/Settings';
 import { Instances } from './components/Instances';
+import { ModsManager } from './components/ModsManager';
+import { SkinsManager } from './components/SkinsManager';
 
 const NEWS_ITEMS = [
   {
@@ -33,7 +36,7 @@ const NEWS_ITEMS = [
   {
     id: 2,
     title: 'Плановые работы на серверах',
-    description: 'Официальные сервисы ZLauncher будут недоступны в воскресенье ночью.',
+    description: 'Официальные сервисы zollauncher будут недоступны в воскресенье ночью.',
     image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1000&auto=format&fit=crop',
     date: '1 день назад',
   },
@@ -147,6 +150,7 @@ export default function LauncherApp() {
       if (event.code === 'F3') setActiveTab('console');
       if (event.code === 'F4') setActiveTab('settings');
       if (event.code === 'F5') setActiveTab('mods');
+      if (event.code === 'F6') setActiveTab('skins');
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -162,7 +166,7 @@ export default function LauncherApp() {
       </div>
 
       <div className="absolute top-0 left-0 right-0 h-10 z-50 app-drag border-b border-white/10 bg-[#0f0f0f]/80 backdrop-blur-md flex items-center justify-between">
-        <div className="px-4 text-xs uppercase tracking-widest text-zinc-500">ZLauncher</div>
+        <div className="px-4 text-xs uppercase tracking-widest text-zinc-500">zollauncher</div>
         <div className="flex h-full app-no-drag">
           <button onClick={() => window.zlauncher?.windowMinimize()} className="w-12 h-full flex items-center justify-center text-zinc-400 hover:bg-white/10"><Minus size={14} /></button>
           <button onClick={() => window.zlauncher?.windowMaximize()} className="w-12 h-full flex items-center justify-center text-zinc-400 hover:bg-white/10"><Maximize2 size={14} /></button>
@@ -176,7 +180,7 @@ export default function LauncherApp() {
             <span className="font-bold text-xl">Z</span>
           </div>
           <div>
-            <h1 className="font-bold text-lg tracking-tight">ZLauncher</h1>
+            <h1 className="font-bold text-lg tracking-tight">zollauncher</h1>
             <p className="text-xs text-zinc-500 font-mono">v3.1.0</p>
           </div>
         </div>
@@ -185,6 +189,7 @@ export default function LauncherApp() {
           <SidebarItem icon={Newspaper} label="Новости" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
           <SidebarItem icon={Box} label="Сборки" active={activeTab === 'instances'} onClick={() => setActiveTab('instances')} />
           <SidebarItem icon={HardDrive} label="Моды" active={activeTab === 'mods'} onClick={() => setActiveTab('mods')} />
+          <SidebarItem icon={Palette} label="Скины" active={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
           <SidebarItem icon={Terminal} label="Консоль" active={activeTab === 'console'} onClick={() => setActiveTab('console')} />
         </div>
 
@@ -283,13 +288,15 @@ export default function LauncherApp() {
             )}
 
             {activeTab === 'mods' && (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center space-y-4">
-                  <HardDrive className="w-16 h-16 text-zinc-700 mx-auto" />
-                  <h2 className="text-2xl font-bold text-zinc-500">Менеджер модов</h2>
-                  <p className="text-zinc-600">Функция появится в одном из следующих обновлений.</p>
-                </div>
-              </div>
+              <motion.div key="mods" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
+                <ModsManager />
+              </motion.div>
+            )}
+
+            {activeTab === 'skins' && (
+              <motion.div key="skins" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
+                <SkinsManager />
+              </motion.div>
             )}
           </AnimatePresence>
         </div>

@@ -1,6 +1,6 @@
-# ZLauncher Public
+# zollauncher Public
 
-Публичный репозиторий проекта ZLauncher.
+Публичный репозиторий проекта zollauncher.
 
 ## Что внутри
 
