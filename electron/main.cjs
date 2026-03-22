@@ -77,10 +77,6 @@ app.whenReady().then(() => {
   launcher.on("exit", (payload) => sendToRenderer("launcher:event", { type: "exit", payload }));
 });
 
-app.on("before-quit", () => {
-  launcher.stop();
-});
-
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });

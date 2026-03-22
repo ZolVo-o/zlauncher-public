@@ -79,7 +79,7 @@ const DEFAULT_SETTINGS: Settings = {
   maxMemory: 4096,
   resolution: { width: 1920, height: 1080 },
   fullScreen: false,
-  autoClose: true,
+  autoClose: false,
   autoInstallDependencies: true,
   gameDir: '',
   username: 'Player',
