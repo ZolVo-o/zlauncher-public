@@ -1,15 +1,15 @@
 export const SITE_CONFIG = {
   appName: 'zollauncher',
-  latestVersion: '0.0.0',
+  latestVersion: '3.2.0',
   github: {
-    repo: 'https://github.com/ZolVo-o/zlauncher-public.git',
-    releases: 'https://github.com/ZolVo-o/zlauncher-public.git',
+    repo: 'https://github.com/ZolVo-o/zlauncher-public',
+    releases: 'https://github.com/ZolVo-o/zlauncher-public/releases',
   },
   downloads: {
     windowsInstaller:
-      'https://github.com/ZolVo-o/zlauncher-public/releases/latest/download/zollauncher-Setup-0.0.0.exe',
+      'https://github.com/ZolVo-o/zlauncher-public/releases/latest/download/zollauncher-Setup-3.2.0.exe',
     windowsPortable:
-      'https://github.com/ZolVo-o/zlauncher-public/releases/latest/download/zollauncher-Portable-0.0.0.exe',
+      'https://github.com/ZolVo-o/zlauncher-public/releases/latest/download/zollauncher-Portable-3.2.0.exe',
     accessibilityMod:
       'https://github.com/ZolVo-o/zlauncher-public/releases/latest/download/zlauncher-access-1.0.0.jar',
   },

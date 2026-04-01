@@ -4,9 +4,50 @@ const os = require("os");
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const { shell } = require("electron");
 const { LauncherService } = require("./launcher.cjs");
+const {
+  parseLaunchPayload,
+  parseGameDirPayload,
+  parseModsDeletePayload,
+  parseModsInstallPayload,
+  parseModsTogglePayload,
+  parsePickFilePayload,
+} = require("./ipc-schemas.cjs");
 
 const launcher = new LauncherService();
 let mainWindow = null;
+let versionsCache = {
+  data: null,
+  expiresAt: 0,
+  inFlight: null,
+};
+
+function getCrashLogPath() {
+  const logsDir = path.join(app.getPath("userData"), "logs");
+  fs.mkdirSync(logsDir, { recursive: true });
+  return path.join(logsDir, "launcher-errors.log");
+}
+
+function writeCrashLog(context, error) {
+  try {
+    const row = [
+      `[${new Date().toISOString()}] ${context}`,
+      error?.stack || error?.message || String(error),
+      "",
+    ].join("\n");
+    fs.appendFileSync(getCrashLogPath(), row, "utf8");
+  } catch (_err) {
+    // noop
+  }
+}
+
+function isSafeExternalUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch (_err) {
+    return false;
+  }
+}
 
 function sendToRenderer(channel, payload) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -29,11 +70,74 @@ function createWindow() {
   });
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
+  const appOrigin = devUrl ? new URL(devUrl).origin : null;
   if (devUrl) {
     mainWindow.loadURL(devUrl);
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) {
+      shell.openExternal(url).catch((err) => writeCrashLog("shell.openExternal", err));
+    }
+    return { action: "deny" };
+  });
+
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const isFile = url.startsWith("file://");
+    const sameDevOrigin = Boolean(appOrigin && url.startsWith(appOrigin));
+    if (isFile || sameDevOrigin) return;
+    event.preventDefault();
+    if (isSafeExternalUrl(url)) {
+      shell.openExternal(url).catch((err) => writeCrashLog("will-navigate", err));
+    }
+  });
+}
+
+async function fetchVersionsWithRetry() {
+  const now = Date.now();
+  if (versionsCache.data && versionsCache.expiresAt > now) {
+    return versionsCache.data;
+  }
+  if (versionsCache.inFlight) return versionsCache.inFlight;
+
+  versionsCache.inFlight = (async () => {
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json", {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch versions: HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const versions = Array.isArray(data?.versions) ? data.versions : [];
+        const normalized = versions.slice(0, 200).map((item) => ({
+          id: item.id,
+          type: item.type,
+          releaseTime: item.releaseTime,
+        }));
+        versionsCache = {
+          data: normalized,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+          inFlight: null,
+        };
+        return normalized;
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+      }
+    }
+    versionsCache.inFlight = null;
+    throw lastError;
+  })();
+
+  return versionsCache.inFlight;
 }
 
 function resolveGameRoot(gameDir) {
@@ -73,8 +177,14 @@ app.whenReady().then(() => {
   launcher.on("log", (payload) => sendToRenderer("launcher:event", { type: "log", payload }));
   launcher.on("status", (payload) => sendToRenderer("launcher:event", { type: "status", payload }));
   launcher.on("progress", (payload) => sendToRenderer("launcher:event", { type: "progress", payload }));
-  launcher.on("error", (payload) => sendToRenderer("launcher:event", { type: "error", payload }));
+  launcher.on("error", (payload) => {
+    writeCrashLog("launcher:error", payload?.message || "unknown");
+    sendToRenderer("launcher:event", { type: "error", payload });
+  });
   launcher.on("exit", (payload) => sendToRenderer("launcher:event", { type: "exit", payload }));
+
+  process.on("uncaughtException", (error) => writeCrashLog("process:uncaughtException", error));
+  process.on("unhandledRejection", (error) => writeCrashLog("process:unhandledRejection", error));
 });
 
 app.on("window-all-closed", () => {
@@ -86,7 +196,8 @@ app.on("activate", () => {
 });
 
 ipcMain.handle("launcher:start", async (_event, params) => {
-  await launcher.start(params);
+  const safeParams = parseLaunchPayload(params);
+  await launcher.start(safeParams);
   return { ok: true };
 });
 
@@ -96,23 +207,14 @@ ipcMain.handle("launcher:stop", async () => {
 });
 
 ipcMain.handle("launcher:getVersions", async () => {
-  const response = await fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
-  if (!response.ok) {
-    throw new Error(`Failed to fetch versions: HTTP ${response.status}`);
-  }
-  const data = await response.json();
-  const versions = Array.isArray(data?.versions) ? data.versions : [];
-  return versions.slice(0, 200).map((item) => ({
-    id: item.id,
-    type: item.type,
-    releaseTime: item.releaseTime,
-  }));
+  return fetchVersionsWithRetry();
 });
 
 ipcMain.handle("dialog:pickFile", async (_event, options) => {
+  const safeOptions = parsePickFilePayload(options);
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openFile"],
-    filters: options?.filters || [],
+    filters: safeOptions.filters || [],
   });
   if (result.canceled || !result.filePaths?.length) return null;
   return result.filePaths[0];
@@ -127,7 +229,8 @@ ipcMain.handle("dialog:pickFolder", async () => {
 });
 
 ipcMain.handle("mods:list", async (_event, payload) => {
-  const modsDir = ensureModsDir(payload?.gameDir);
+  const safePayload = parseGameDirPayload(payload, "mods:list");
+  const modsDir = ensureModsDir(safePayload.gameDir);
   const entries = fs.readdirSync(modsDir, { withFileTypes: true });
 
   const items = entries
@@ -153,8 +256,9 @@ ipcMain.handle("mods:list", async (_event, payload) => {
 });
 
 ipcMain.handle("mods:delete", async (_event, payload) => {
-  const modsDir = ensureModsDir(payload?.gameDir);
-  const fileName = assertSafeModFileName(payload?.fileName);
+  const safePayload = parseModsDeletePayload(payload);
+  const modsDir = ensureModsDir(safePayload.gameDir);
+  const fileName = assertSafeModFileName(safePayload.fileName);
 
   const targetPath = path.join(modsDir, fileName);
   if (!fs.existsSync(targetPath)) {
@@ -166,9 +270,10 @@ ipcMain.handle("mods:delete", async (_event, payload) => {
 });
 
 ipcMain.handle("mods:install", async (_event, payload) => {
-  const modsDir = ensureModsDir(payload?.gameDir);
-  const sourcePath = String(payload?.sourcePath || "").trim();
-  const overwrite = Boolean(payload?.overwrite);
+  const safePayload = parseModsInstallPayload(payload);
+  const modsDir = ensureModsDir(safePayload.gameDir);
+  const sourcePath = String(safePayload.sourcePath || "").trim();
+  const overwrite = Boolean(safePayload.overwrite);
 
   if (!sourcePath) {
     throw new Error("Source mod path is required");
@@ -198,9 +303,10 @@ ipcMain.handle("mods:install", async (_event, payload) => {
 });
 
 ipcMain.handle("mods:toggle", async (_event, payload) => {
-  const modsDir = ensureModsDir(payload?.gameDir);
-  const fileName = assertSafeModFileName(payload?.fileName);
-  const enabled = Boolean(payload?.enabled);
+  const safePayload = parseModsTogglePayload(payload);
+  const modsDir = ensureModsDir(safePayload.gameDir);
+  const fileName = assertSafeModFileName(safePayload.fileName);
+  const enabled = Boolean(safePayload.enabled);
   const currentPath = path.join(modsDir, fileName);
 
   if (!fs.existsSync(currentPath)) {
@@ -232,7 +338,8 @@ ipcMain.handle("mods:toggle", async (_event, payload) => {
 });
 
 ipcMain.handle("mods:openFolder", async (_event, payload) => {
-  const modsDir = ensureModsDir(payload?.gameDir);
+  const safePayload = parseGameDirPayload(payload, "mods:openFolder");
+  const modsDir = ensureModsDir(safePayload.gameDir);
   const openResult = await shell.openPath(modsDir);
   if (openResult) {
     throw new Error(openResult);

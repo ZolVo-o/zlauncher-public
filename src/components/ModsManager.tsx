@@ -28,6 +28,9 @@ export function ModsManager() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [deletingName, setDeletingName] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [onlyEnabled, setOnlyEnabled] = useState(false);
+  const [selectedMods, setSelectedMods] = useState<string[]>([]);
 
   const desktopApi = window.zlauncher;
   const isDesktop = Boolean(desktopApi?.isDesktop);
@@ -56,6 +59,29 @@ export function ModsManager() {
     const totalSize = mods.reduce((acc, item) => acc + item.size, 0);
     return `${mods.length} модов, ${formatSize(totalSize)}`;
   }, [mods]);
+
+  const filteredMods = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return mods.filter((item) => {
+      if (onlyEnabled && !item.enabled) return false;
+      if (!query) return true;
+      return item.name.toLowerCase().includes(query) || item.fileName.toLowerCase().includes(query);
+    });
+  }, [mods, onlyEnabled, searchQuery]);
+
+  const selectedSet = useMemo(() => new Set(selectedMods), [selectedMods]);
+
+  const toggleSelected = (fileName: string) => {
+    setSelectedMods((prev) => (prev.includes(fileName) ? prev.filter((name) => name !== fileName) : [...prev, fileName]));
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedMods(filteredMods.map((item) => item.fileName));
+  };
+
+  const clearSelection = () => {
+    setSelectedMods([]);
+  };
 
   const handleDelete = async (fileName: string) => {
     if (!desktopApi?.isDesktop) return;
@@ -134,6 +160,42 @@ export function ModsManager() {
     }
   };
 
+  const handleBatchToggle = async (enabled: boolean) => {
+    if (!desktopApi?.isDesktop || !selectedMods.length) return;
+    setError('');
+    try {
+      await Promise.all(
+        mods
+          .filter((item) => selectedSet.has(item.fileName) && item.enabled !== enabled)
+          .map((item) => desktopApi.toggleMod(settings.gameDir, item.fileName, enabled))
+      );
+      addLog('INFO', 'Mods', `${enabled ? 'Включение' : 'Отключение'} выбранных модов: ${selectedMods.length}`);
+      await loadMods();
+      clearSelection();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      addLog('ERROR', 'Mods', message);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (!desktopApi?.isDesktop || !selectedMods.length) return;
+    const confirmed = window.confirm(`Удалить выбранные моды (${selectedMods.length})?`);
+    if (!confirmed) return;
+    setError('');
+    try {
+      await Promise.all(selectedMods.map((fileName) => desktopApi.deleteMod(settings.gameDir, fileName)));
+      addLog('WARN', 'Mods', `Удалены выбранные моды: ${selectedMods.length}`);
+      await loadMods();
+      clearSelection();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      addLog('ERROR', 'Mods', message);
+    }
+  };
+
   const handleOpenFolder = async () => {
     if (!desktopApi?.isDesktop) return;
     try {
@@ -189,6 +251,47 @@ export function ModsManager() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Поиск по названию мода"
+          className="px-3 py-2 rounded-lg border border-white/10 bg-zinc-900 text-sm text-zinc-200 min-w-72"
+        />
+        <label className="inline-flex items-center gap-2 text-sm text-zinc-300 px-3 py-2 rounded-lg border border-white/10 bg-zinc-900">
+          <input type="checkbox" checked={onlyEnabled} onChange={(event) => setOnlyEnabled(event.target.checked)} />
+          Только включённые
+        </label>
+        <button onClick={selectAllFiltered} className="px-3 py-2 rounded-lg border border-white/10 bg-zinc-900 text-sm hover:bg-zinc-800">Выделить всё</button>
+        <button onClick={clearSelection} className="px-3 py-2 rounded-lg border border-white/10 bg-zinc-900 text-sm hover:bg-zinc-800">Снять выделение</button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-zinc-400">Выбрано: {selectedMods.length}</span>
+        <button
+          disabled={!selectedMods.length}
+          onClick={() => handleBatchToggle(true)}
+          className="px-3 py-2 rounded-lg border border-emerald-500/40 text-emerald-300 disabled:opacity-50"
+        >
+          Включить выбранные
+        </button>
+        <button
+          disabled={!selectedMods.length}
+          onClick={() => handleBatchToggle(false)}
+          className="px-3 py-2 rounded-lg border border-amber-500/40 text-amber-300 disabled:opacity-50"
+        >
+          Отключить выбранные
+        </button>
+        <button
+          disabled={!selectedMods.length}
+          onClick={handleBatchDelete}
+          className="px-3 py-2 rounded-lg border border-red-500/40 text-red-300 disabled:opacity-50"
+        >
+          Удалить выбранные
+        </button>
+      </div>
+
       <div className="text-xs text-zinc-500 font-mono truncate">{modsDir || 'Путь папки mods определяется...'}</div>
 
       {error && (
@@ -196,14 +299,21 @@ export function ModsManager() {
       )}
 
       <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20">
-        {mods.length === 0 ? (
+        {filteredMods.length === 0 ? (
           <div className="h-full min-h-[260px] flex items-center justify-center p-6 text-zinc-500 text-center">
             В папке `mods` пока нет `.jar` файлов.
           </div>
         ) : (
           <div className="divide-y divide-white/5">
-            {mods.map((item) => (
+            {filteredMods.map((item) => (
               <div key={item.fileName} className="flex items-center gap-4 p-4">
+                <input
+                  title={`Выбрать ${item.name}`}
+                  type="checkbox"
+                  checked={selectedSet.has(item.fileName)}
+                  onChange={() => toggleSelected(item.fileName)}
+                  className="h-4 w-4"
+                />
                 <HardDrive className="w-5 h-5 text-zinc-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">

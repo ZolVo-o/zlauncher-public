@@ -11,6 +11,7 @@ minecraft-mod/zlauncher-access/build/
 # local tools/cache
 .tools/
 .gradle/
+.vendor/
 
 # logs
 npm-debug.log*

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Play,
   Settings as SettingsIcon,
@@ -13,41 +13,18 @@ import {
   X,
   Minus,
   Maximize2,
-  Trash2,
-  Square,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useShallow } from 'zustand/react/shallow';
 import { cn } from './utils/cn';
 import { useLauncherStore } from './store/launcherStore';
 import { Settings } from './components/Settings';
 import { Instances } from './components/Instances';
 import { ModsManager } from './components/ModsManager';
 import { SkinsManager } from './components/SkinsManager';
-
-const NEWS_ITEMS = [
-  {
-    id: 1,
-    title: 'Релиз-кандидат 1.20.4',
-    description: 'Вышел новый релиз-кандидат Java Edition с исправлением критичных багов.',
-    image: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1000&auto=format&fit=crop',
-    date: '2 часа назад',
-  },
-  {
-    id: 2,
-    title: 'Плановые работы на серверах',
-    description: 'Официальные сервисы zollauncher будут недоступны в воскресенье ночью.',
-    image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1000&auto=format&fit=crop',
-    date: '1 день назад',
-  },
-  {
-    id: 3,
-    title: 'Конкурс скинов',
-    description: 'Загрузи тематический скин и получи шанс выиграть эксклюзивный плащ.',
-    image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1000&auto=format&fit=crop',
-    date: '3 дня назад',
-  },
-];
+import { HomeTab } from './components/launcher/HomeTab';
+import { ConsoleTab } from './components/launcher/ConsoleTab';
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: LucideIcon; label: string; active: boolean; onClick: () => void }) => (
   <button
@@ -105,10 +82,36 @@ export default function LauncherApp() {
     logs,
     clearLogs,
     settings,
-  } = useLauncherStore();
+    account,
+    confirmAccountToken,
+    logoutAccount,
+  } = useLauncherStore(
+    useShallow((state) => ({
+      activeTab: state.activeTab,
+      setActiveTab: state.setActiveTab,
+      instances: state.instances,
+      selectedInstanceId: state.selectedInstanceId,
+      selectInstance: state.selectInstance,
+      isPlaying: state.isPlaying,
+      launchProgress: state.launchProgress,
+      launchStatus: state.launchStatus,
+      startLaunch: state.startLaunch,
+      stopLaunch: state.stopLaunch,
+      processDesktopEvent: state.processDesktopEvent,
+      logs: state.logs,
+      clearLogs: state.clearLogs,
+      settings: state.settings,
+      account: state.account,
+      confirmAccountToken: state.confirmAccountToken,
+      logoutAccount: state.logoutAccount,
+    }))
+  );
 
   const [showVersionSelector, setShowVersionSelector] = useState(false);
-  const logContainerRef = useRef<HTMLDivElement>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmToken, setConfirmToken] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState(false);
   const selectedInstance = instances.find((i) => i.id === selectedInstanceId) || instances[0];
   const accessibility = settings.accessibilityMode;
   const isRightHandMode = accessibility && settings.oneHandedSide === 'right';
@@ -120,11 +123,8 @@ export default function LauncherApp() {
     return loader;
   };
 
-  useEffect(() => {
-    if (activeTab === 'console' && logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-    }
-  }, [logs, activeTab]);
+  const accountName = account?.username || settings.username || 'Player';
+  const accountDescription = account ? account.email : 'Локальный аккаунт';
 
   useEffect(() => {
     if (!window.zlauncher?.isDesktop) return;
@@ -168,9 +168,9 @@ export default function LauncherApp() {
       <div className="absolute top-0 left-0 right-0 h-10 z-50 app-drag border-b border-white/10 bg-[#0f0f0f]/80 backdrop-blur-md flex items-center justify-between">
         <div className="px-4 text-xs uppercase tracking-widest text-zinc-500">zollauncher</div>
         <div className="flex h-full app-no-drag">
-          <button onClick={() => window.zlauncher?.windowMinimize()} className="w-12 h-full flex items-center justify-center text-zinc-400 hover:bg-white/10"><Minus size={14} /></button>
-          <button onClick={() => window.zlauncher?.windowMaximize()} className="w-12 h-full flex items-center justify-center text-zinc-400 hover:bg-white/10"><Maximize2 size={14} /></button>
-          <button onClick={() => window.zlauncher?.windowClose()} className="w-12 h-full flex items-center justify-center text-zinc-300 hover:bg-red-600 hover:text-white transition-colors"><X size={14} /></button>
+          <button title="Свернуть" onClick={() => window.zlauncher?.windowMinimize()} className="w-12 h-full flex items-center justify-center text-zinc-400 hover:bg-white/10"><Minus size={14} /></button>
+          <button title="Развернуть" onClick={() => window.zlauncher?.windowMaximize()} className="w-12 h-full flex items-center justify-center text-zinc-400 hover:bg-white/10"><Maximize2 size={14} /></button>
+          <button title="Закрыть" onClick={() => window.zlauncher?.windowClose()} className="w-12 h-full flex items-center justify-center text-zinc-300 hover:bg-red-600 hover:text-white transition-colors"><X size={14} /></button>
         </div>
       </div>
 
@@ -181,7 +181,7 @@ export default function LauncherApp() {
           </div>
           <div>
             <h1 className="font-bold text-lg tracking-tight">zollauncher</h1>
-            <p className="text-xs text-zinc-500 font-mono">v3.1.0</p>
+            <p className="text-xs text-zinc-500 font-mono">v3.2.0</p>
           </div>
         </div>
 
@@ -195,7 +195,7 @@ export default function LauncherApp() {
 
         <div className="p-3 border-t border-white/5 space-y-1">
           <SidebarItem icon={SettingsIcon} label="Настройки" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-950/30 text-zinc-400 hover:text-red-400 transition-colors">
+          <button onClick={logoutAccount} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-950/30 text-zinc-400 hover:text-red-400 transition-colors">
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Выйти</span>
           </button>
@@ -206,37 +206,7 @@ export default function LauncherApp() {
         <div className="flex-1 overflow-y-auto pb-32 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-800">
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (
-              <motion.div key="home" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="p-8 space-y-8">
-                <div className="rounded-2xl overflow-hidden relative h-64 group cursor-pointer border border-white/10 shadow-2xl">
-                  <img src="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent flex flex-col justify-end p-8">
-                    <span className="inline-block px-3 py-1 bg-accent-600 text-white text-xs font-bold rounded-full mb-3 w-fit">ГЛАВНОЕ</span>
-                    <h2 className="text-3xl font-bold mb-2">Обновлённый запуск без ручной настройки</h2>
-                    <p className="text-zinc-300 max-w-2xl">Лаунчер сам подготовит окружение и скачает недостающие файлы для выбранной сборки.</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <Newspaper className="w-5 h-5 text-accent-500" />
-                    Последние новости
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {NEWS_ITEMS.map((item) => (
-                      <div key={item.id} className="bg-zinc-900/60 border border-white/5 rounded-xl overflow-hidden hover:border-accent-600/50 transition-colors group cursor-pointer">
-                        <div className="h-40 overflow-hidden">
-                          <img src={item.image} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                        </div>
-                        <div className="p-4">
-                          <div className="text-xs text-accent-400 mb-2">{item.date}</div>
-                          <h4 className="font-bold text-lg mb-2 leading-tight group-hover:text-accent-400 transition-colors">{item.title}</h4>
-                          <p className="text-sm text-zinc-400 line-clamp-2">{item.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
+              <HomeTab />
             )}
 
             {activeTab === 'instances' && (
@@ -252,39 +222,7 @@ export default function LauncherApp() {
             )}
 
             {activeTab === 'console' && (
-              <motion.div key="console" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 h-full flex flex-col">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Terminal className="text-accent-500" />
-                    Вывод игры
-                  </h2>
-                  <div className="flex gap-2">
-                    <button onClick={clearLogs} className="px-3 py-2 rounded-lg border border-white/10 text-zinc-300 hover:bg-white/10 text-sm inline-flex items-center gap-2">
-                      <Trash2 size={14} />
-                      Очистить лог
-                    </button>
-                    <button onClick={stopLaunch} disabled={!isPlaying} className="px-3 py-2 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-600/20 text-sm inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                      <Square size={14} />
-                      Остановить
-                    </button>
-                  </div>
-                </div>
-                <div ref={logContainerRef} className="flex-1 bg-[#0c0c0c] border border-white/10 rounded-xl p-4 font-mono text-sm overflow-y-auto text-zinc-400 shadow-inner">
-                  {logs.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-zinc-600 italic">Логи пока пустые. Нажми «Играть», чтобы увидеть запуск.</div>
-                  ) : (
-                    logs.map((log) => (
-                      <div key={log.id} className="hover:bg-white/5 px-2 py-0.5 rounded">
-                        <span className="text-zinc-600">[{log.timestamp}]</span>{' '}
-                        <span className={cn('font-bold', log.level === 'INFO' && 'text-blue-400', log.level === 'WARN' && 'text-yellow-500', log.level === 'ERROR' && 'text-red-500', log.level === 'DEBUG' && 'text-zinc-500')}>
-                          [{log.source}/{log.level}]:
-                        </span>{' '}
-                        <span className="text-zinc-300">{log.message}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
+              <ConsoleTab logs={logs} clearLogs={clearLogs} stopLaunch={stopLaunch} isPlaying={isPlaying} />
             )}
 
             {activeTab === 'mods' && (
@@ -308,9 +246,20 @@ export default function LauncherApp() {
               <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#111]" />
             </div>
             <div className="flex-1">
-              <div className="font-bold text-sm">SteveDev</div>
-              <div className="text-xs text-zinc-500">Локальный аккаунт</div>
+              <div className="font-bold text-sm">{accountName}</div>
+              <div className="text-xs text-zinc-500">{accountDescription}</div>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowConfirmModal(true);
+                setConfirmError(false);
+                setConfirmMessage(null);
+              }}
+              className="px-2 py-1 rounded-md border border-white/10 text-xs text-zinc-300 hover:bg-white/10"
+            >
+              {account ? 'Обновить' : 'Подтвердить'}
+            </button>
             <ChevronDown className="w-4 h-4 text-zinc-500" />
           </div>
 
@@ -377,6 +326,47 @@ export default function LauncherApp() {
       </div>
 
       {isPlaying && <ProgressBar progress={launchProgress} status={launchStatus} />}
+
+      {showConfirmModal && (
+        <div className="absolute inset-0 z-[70] bg-black/70 backdrop-blur-sm p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl space-y-4 app-no-drag">
+            <h3 className="text-xl font-bold">Подтверждение аккаунта</h3>
+            <p className="text-sm text-zinc-400">Вставь код, который был создан на сайте в блоке «Регистрация для лаунчера».</p>
+            <textarea
+              value={confirmToken}
+              onChange={(event) => setConfirmToken(event.target.value)}
+              rows={5}
+              className="w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 font-mono"
+              placeholder="ZL1...."
+            />
+            {confirmMessage && (
+              <div className={cn('rounded-xl px-3 py-2 text-sm border', confirmError ? 'border-red-500/40 bg-red-900/20 text-red-200' : 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200')}>
+                {confirmMessage}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 rounded-lg border border-white/10 text-zinc-300 hover:bg-white/10"
+              >
+                Закрыть
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const result = confirmAccountToken(confirmToken);
+                  setConfirmError(!result.ok);
+                  setConfirmMessage(result.message);
+                }}
+                className="px-4 py-2 rounded-lg bg-accent-600 hover:bg-accent-500 text-white"
+              >
+                Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {accessibility && (
         <div className={cn("absolute bottom-32 z-[60] flex flex-col gap-3 app-no-drag", isRightHandMode ? "right-6" : "left-6")}>

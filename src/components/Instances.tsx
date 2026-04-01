@@ -3,9 +3,18 @@ import { useLauncherStore } from '../store/launcherStore';
 import { Box, Plus, Trash2, Settings as SettingsIcon } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useShallow } from 'zustand/react/shallow';
 
 export function Instances() {
-  const { instances, addInstance, removeInstance, selectInstance, selectedInstanceId } = useLauncherStore();
+  const { instances, addInstance, removeInstance, selectInstance, selectedInstanceId } = useLauncherStore(
+    useShallow((state) => ({
+      instances: state.instances,
+      addInstance: state.addInstance,
+      removeInstance: state.removeInstance,
+      selectInstance: state.selectInstance,
+      selectedInstanceId: state.selectedInstanceId,
+    }))
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [newInstance, setNewInstance] = useState<{ name: string; version: string; type: 'release' | 'snapshot' | 'modded' }>({
     name: '',

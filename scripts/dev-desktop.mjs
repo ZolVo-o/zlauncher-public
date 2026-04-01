@@ -1,7 +1,26 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import net from "node:net";
+import path from "node:path";
 import process from "node:process";
-import electronBinary from "electron";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function resolveElectronBinary() {
+  const bundled = path.resolve(__dirname, "..", "node_modules", "electron", "dist", "electron.exe");
+  const fallback = path.resolve(__dirname, "..", ".vendor", "electron-win32-x64", "electron.exe");
+
+  if (process.platform === "win32") {
+    if (fs.existsSync(bundled)) return bundled;
+    if (fs.existsSync(fallback)) return fallback;
+  }
+
+  throw new Error(
+    "Electron binary not found. Install dependencies or provide .vendor/electron-win32-x64/electron.exe"
+  );
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,11 +61,10 @@ async function waitForVite(url, maxAttempts = 120) {
 
 const port = await findPort(5173, 50);
 const devUrl = `http://127.0.0.1:${port}`;
-
-const vite = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
-  stdio: "inherit",
-  shell: true,
-});
+const viteArgs = ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(port), "--strictPort"];
+const vite = process.platform === "win32"
+  ? spawn(`npm ${viteArgs.join(" ")}`, { stdio: "inherit", shell: true })
+  : spawn("npm", viteArgs, { stdio: "inherit", shell: false });
 
 const cleanup = () => {
   if (!vite.killed) vite.kill();
@@ -65,6 +83,7 @@ if (!ready) {
 
 const electronEnv = { ...process.env, VITE_DEV_SERVER_URL: devUrl };
 delete electronEnv.ELECTRON_RUN_AS_NODE;
+const electronBinary = resolveElectronBinary();
 
 const electron = spawn(electronBinary, ["."], {
   stdio: "inherit",

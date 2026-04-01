@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   CheckCircle2,
+  Copy,
   ExternalLink,
   HelpCircle,
   Layers,
@@ -11,7 +12,9 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { SITE_CONFIG } from '../config/siteConfig';
+import { createLocalRegistration } from '../utils/registrationToken';
 
 const FEATURES = [
   {
@@ -116,6 +119,35 @@ function GithubLinkButton({
 
 export function Website() {
   const buildId = import.meta.env.VITE_BUILD_ID || 'local-dev';
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
+  const [requestId, setRequestId] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const formError = useMemo(() => {
+    if (!username.trim()) return 'Укажи никнейм.';
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'Укажи корректный email.';
+    if (password.trim().length < 8) return 'Пароль должен быть не короче 8 символов.';
+    return '';
+  }, [username, email, password]);
+
+  const handleRegister = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (formError) return;
+    const created = createLocalRegistration({ username, email, password });
+    setToken(created.token);
+    setRequestId(created.payload.requestId);
+    setCopySuccess(false);
+  };
+
+  const copyToken = async () => {
+    if (!token) return;
+    await navigator.clipboard.writeText(token);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 1500);
+  };
 
   return (
     <div className="min-h-screen bg-[#090909] text-zinc-100">
@@ -138,6 +170,9 @@ export function Website() {
             </a>
             <a href="#faq" className="transition-colors hover:text-white">
               FAQ
+            </a>
+            <a href="#registration" className="transition-colors hover:text-white">
+              Регистрация
             </a>
           </nav>
         </div>
@@ -238,6 +273,76 @@ export function Website() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section id="registration" className="mt-14 rounded-3xl border border-white/10 bg-zinc-900/45 p-7 md:mt-18 md:p-10">
+          <SectionHeader
+            eyebrow="ACCOUNT"
+            title="Регистрация для лаунчера"
+            subtitle="Локальный поток без серверов: данные и заявки хранятся в localStorage, код подтверждается в приложении."
+          />
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
+            <form onSubmit={handleRegister} className="space-y-4 rounded-2xl border border-white/10 bg-black/25 p-5">
+              <div>
+                <label htmlFor="reg-username" className="mb-1 block text-sm text-zinc-300">Никнейм</label>
+                <input
+                  id="reg-username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  placeholder="SteveDev"
+                />
+              </div>
+              <div>
+                <label htmlFor="reg-email" className="mb-1 block text-sm text-zinc-300">Email</label>
+                <input
+                  id="reg-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <label htmlFor="reg-password" className="mb-1 block text-sm text-zinc-300">Пароль</label>
+                <input
+                  id="reg-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  placeholder="Минимум 8 символов"
+                />
+              </div>
+              {formError && <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-sm text-amber-200">{formError}</div>}
+              <button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-500">
+                Создать код подтверждения
+              </button>
+            </form>
+
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-black/25 p-5">
+              <p className="text-sm text-zinc-300">Шаг 2: открой лаунчер и вставь код в окно подтверждения аккаунта.</p>
+              <div className="rounded-xl border border-white/10 bg-zinc-950 p-3">
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Request ID</p>
+                <p className="mt-1 text-sm text-zinc-200">{requestId || '—'}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-zinc-950 p-3">
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Код подтверждения</p>
+                <p className="mt-1 break-all text-xs text-zinc-200">{token || 'Сначала заполни форму и создай код.'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={copyToken}
+                disabled={!token}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-white/10 disabled:opacity-50"
+              >
+                <Copy className="h-4 w-4" />
+                {copySuccess ? 'Скопировано' : 'Скопировать код'}
+              </button>
+            </div>
+          </div>
         </section>
 
         <section id="faq" className="mt-14 md:mt-18">

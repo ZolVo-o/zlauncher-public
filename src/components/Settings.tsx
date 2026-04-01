@@ -8,6 +8,19 @@ export function Settings() {
   const [localSettings, setLocalSettings] = React.useState(settings);
   const [saved, setSaved] = React.useState(false);
 
+  const validationIssues = React.useMemo(() => {
+    const issues: string[] = [];
+    if (localSettings.minMemory < 512) issues.push('Минимальная память не может быть меньше 512 MB.');
+    if (localSettings.maxMemory < localSettings.minMemory) issues.push('Максимальная память должна быть больше или равна минимальной.');
+    if (localSettings.maxMemory > 65536) issues.push('Максимальная память не должна превышать 65536 MB.');
+    if (localSettings.resolution.width < 640) issues.push('Ширина экрана должна быть не меньше 640.');
+    if (localSettings.resolution.height < 480) issues.push('Высота экрана должна быть не меньше 480.');
+    if (localSettings.username.trim().length < 3) issues.push('Никнейм должен содержать минимум 3 символа.');
+    return issues;
+  }, [localSettings]);
+
+  const canSave = validationIssues.length === 0;
+
   React.useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
@@ -28,6 +41,7 @@ export function Settings() {
   };
 
   const handleSave = () => {
+    if (!canSave) return;
     updateSettings(localSettings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -39,8 +53,9 @@ export function Settings() {
         <h2 className="text-3xl font-bold">Настройки лаунчера</h2>
         <button
           onClick={handleSave}
+          disabled={!canSave}
           className={cn(
-            'px-6 py-2 rounded-lg flex items-center gap-2 font-medium transition-all',
+            'px-6 py-2 rounded-lg flex items-center gap-2 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed',
             saved ? 'bg-green-600 text-white' : 'bg-accent-600 hover:bg-accent-500 text-white'
           )}
         >
@@ -48,6 +63,17 @@ export function Settings() {
           {saved ? 'Сохранено' : 'Сохранить'}
         </button>
       </div>
+
+      {validationIssues.length > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+          <p className="font-semibold mb-1">Проверь настройки перед сохранением:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            {validationIssues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid gap-6">
         <section className="bg-zinc-900/60 border border-accent-700/30 rounded-xl p-6 space-y-4">
