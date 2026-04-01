@@ -33,7 +33,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
-    "electron": "^36.0.0",
+    "electron": "36.0.0",
     "electron-builder": "^26.0.12",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
@@ -53,6 +53,7 @@
       "electron/**/*",
       "package.json"
     ],
+    "electronVersion": "36.0.0",
     "win": {
       "icon": "build/icon.ico",
       "target": "nsis"
